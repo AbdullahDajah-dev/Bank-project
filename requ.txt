@@ -1,0 +1,7 @@
+main menu (Enum for user choice)
+
+press any key to go back
+
+add clients (exclude alrdy added)
+
+modify addclients.
