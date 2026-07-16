@@ -5,664 +5,754 @@
 #include "MyLib.h"
 #include <iomanip>
 #include <cctype>
-#include <fstream>
 #include <vector>
-
+#include <fstream>
 using namespace std;
 
-const string ClientFileName = ("Clients.txt");
+const string ClientFileName = "Clients.txt";
+void ShowMainMenu();
+void ShowTransactionsMenu();
 
-enum enMainMenu {Exit = 0, allClients, AddNew, DeleteClient, UpdateInfo, Search, Transactions };
 
-enum enTransactionsMenu {Deposite = 1, Withdraw, ShowTotalBalances, ShowMainMenu};
-
-void HandleMainMenuChoice(enMainMenu);
-void ShowTransactionMenu();
-
-void MainMenuScreen()
+enum enMainMenu
 {
-	cout << "====================================\n"
-		<< MyLib::Tabs(1) << "Main Menu Screen\n"
-		<< "====================================" << endl;
-	cout << "[1] Show Clients List.\n"
-		<< "[2] Add New Client.\n"
-		<< "[3] Delete Client.\n"
-		<< "[4] Update Client Info.\n"
-		<< "[5] Find Client.\n"
-        << "[6] Transactions.\n"
-		<< "[0] Exit\n";
-	cout << "====================================\n" << endl;
+	eExit = 0, eClientsList, eAddNewClient,
+	eDeleteClient, eUpdateClient, eFindClient,
+	eTransactions
+};
 
-}
-
-enMainMenu MainMenuButtons()
+enum enTransactions
 {
-	int userChoice = MyLib::ReadNumberFromTo(0, 6, "Select from the list please? ");
-	return (enMainMenu)userChoice;
-	
-}
+	eDeposit = 1, eWithdraw,
+	eTotalBalance, eMainMenu
+};
 
 struct stClientData
 {
 	string AccountNumber;
-	string PinCode;
+	string PINCode;
 	string ClientName;
-	string PhoneNumber;
 	string Address;
-	double Balance = 0;
+	string PhoneNumber;
+	double AccountBalance = 0;
 	bool MarkForDelete = false;
 };
 
-string ConvertRecordToLine(stClientData ClientRecord, string Delim = "#//#")
+string ConvertRecordToLine(const stClientData& client, string Delim = "#//#")
 {
-    string Client = "";
+	string DataLine = "";
 
-    Client += ClientRecord.AccountNumber + Delim;
-    Client += ClientRecord.PinCode + Delim;
-    Client += MyLib::FormatToTitleCase(ClientRecord.ClientName) + Delim;
-    Client += MyLib::FormatToTitleCase(ClientRecord.Address) + Delim;
-    Client += ClientRecord.PhoneNumber + Delim;
-    Client += to_string(ClientRecord.Balance);
+	DataLine += client.AccountNumber + Delim;
+	DataLine += client.PINCode + Delim;
+	DataLine += client.ClientName + Delim;
+	DataLine += client.Address + Delim;
+	DataLine += client.PhoneNumber + Delim;
+	DataLine += to_string(client.AccountBalance);
 
-    return Client;
-}
+	return DataLine;
 
-stClientData ConvertLineToRecord(string DataLine, string Delim = "#//#")
-{
-    vector <string> vClientData;
-    stClientData ClientData;
-
-    vClientData = MyLib::SplitString(DataLine, Delim);
-
-    ClientData.AccountNumber = vClientData[0];
-    ClientData.PinCode       = vClientData[1];
-    ClientData.ClientName    = vClientData[2];
-    ClientData.Address       = vClientData[3];
-    ClientData.PhoneNumber   = vClientData[4];
-    ClientData.Balance       = stod(vClientData[5]);
-
-    return ClientData;
-}
-
-bool ClientExistsByAccountNumber(string AccountNumber, string FileName)
-{
-    fstream MyFile;
-    MyFile.open(FileName, ios::in);
-
-    if (MyFile.is_open())
-    {
-        string Line;
-        stClientData Client;
-
-        while (getline(MyFile, Line))
-        {
-            if (Line.empty() || Line == "") continue;
-
-            Client = ConvertLineToRecord(Line);
-
-            if (Client.AccountNumber == AccountNumber)
-            {
-                MyFile.close();
-                return true;
-            }
-        }
-        MyFile.close();
-    }
-    return false;
-}
-
-stClientData ReadClientData()
-{
-	stClientData client;
-
-	client.AccountNumber  = MyLib::readtext("Enter account number?");
-
-    while (ClientExistsByAccountNumber(client.AccountNumber, ClientFileName))
-    {
-        cout << "\nClient with [" << client.AccountNumber << "] already exists"
-           ", Enter another account number?\n\n";
-         getline(cin >> ws, client.AccountNumber);
-    }
-
-	client.PinCode        = MyLib::readtext("Enter PIN Code?");
-	client.ClientName     = MyLib::readtext("Enter client name?");
-	client.Address        = MyLib::readtext("Enter Client address?");
-	client.PhoneNumber    = MyLib::readtext("Enter phone number?");
-	client.Balance        = MyLib::ReadPositiveNumber("Enter Balance?");
-
-	return client;
 }
 
 void AddDataLineToFile(string FileName, string DataLine)
 {
-    fstream MyFile;
-    MyFile.open(FileName, ios::out | ios::app);
+	fstream MyFile;
+	MyFile.open(FileName, ios::out | ios::app);
 
-    if (MyFile.is_open())
-    {
-        MyFile << DataLine << endl << endl;
+	if (MyFile.is_open())
+	{
+		MyFile << DataLine << endl << endl;
 
-        MyFile.close();
-    }
+		MyFile.close();
+	}
 }
 
-vector<stClientData> LoadDataFromFile(string FileName)
+vector <string> SplitString(string DataLine, string Delim = "#//#")
 {
+	vector <string> vString;
+	short pos = 0;
+	string sWord;
 
-    vector <stClientData> vClientRecord;
-    fstream MyFile;
+	while ((pos = DataLine.find(Delim)) != string::npos)
+	{
+		sWord = DataLine.substr(0, pos);
+		sWord = MyLib::Trim(sWord);
 
-    MyFile.open(FileName, ios::in);
+		if (sWord != "")
+		{
+			vString.push_back(sWord);
+		}
+		DataLine.erase(0, pos + Delim.length());
+	}
+	DataLine = MyLib::Trim(DataLine);
+	if (DataLine != "")
+		vString.push_back(DataLine);
 
-    string line;
-    stClientData Client;
-
-    if (MyFile.is_open())
-    {
-        while (getline(MyFile, line))
-        {
-            if (line.empty() || line == "") continue;
-
-            Client = ConvertLineToRecord(line);
-            vClientRecord.push_back(Client);
-        }
-        MyFile.close();
-    }
-    return vClientRecord;
+	return vString;
 }
 
-void AddNewClient(string FileName)
+stClientData ConvertLineToRecord(string DataLine, string Delim = "#//#")
 {
-    stClientData newClient = ReadClientData();
-    AddDataLineToFile(FileName, ConvertRecordToLine(newClient));
+	stClientData client;
+	vector <string> vClientRecord;
+	vClientRecord = SplitString(DataLine, Delim);
+
+	if (vClientRecord.size() != 6)
+		return client;
+
+	client.AccountNumber = vClientRecord[0];
+	client.PINCode = vClientRecord[1];
+	client.ClientName = vClientRecord[2];
+	client.Address = vClientRecord[3];
+	client.PhoneNumber = vClientRecord[4];
+	client.AccountBalance = stod(vClientRecord[5]);
+
+	return client;
 }
 
-void AddClients(string FileName)
+bool ClientExistsByAccountNumber(string accountNumber, string FileName)
 {
-    char AddMore = 'Y';
+	vector <stClientData> vClients;
+	fstream MyFile;
 
-    do
-    {
-        MyLib::ResetScreen();
-        cout << "- - - - - - - - - - - - - - -\n";
-        cout << "    |- Add New Client -|\n";
-        cout << "- - - - - - - - - - - - - - -\n";
-        AddNewClient(FileName);
+	MyFile.open(FileName, ios::in);
+	if (MyFile.is_open())
+	{
+		string line;
+		stClientData client;
 
-        cout << "\n- - - - - - - - - - - - - - -\n";
-        cout << "|- Client has been added. -|\n";
-        cout << "- - - - - - - - - - - - - - -\n\n";
-        cout << "Do you want to add more? Y/N: ";
-             
-        cin >> AddMore;
-        cin.ignore();
-    } while (toupper(AddMore) == 'Y');
-    
+		while (getline(MyFile, line))
+		{
+			if (line.empty() || line == "") continue;
+
+			client = ConvertLineToRecord(line);
+			if (client.AccountNumber == accountNumber)
+			{
+				MyFile.close();
+				return true;
+			}
+		}
+		MyFile.close();
+	}
+	return false;
 }
 
-void PrintClientRecord(stClientData ClientRecord)
+stClientData ReadNewClient()
 {
-    cout << "| " << left << setw(15) << ClientRecord.AccountNumber;
-    cout << "| " << left << setw(12) << ClientRecord.PinCode;
-    cout << "| " << left << setw(20) << MyLib::FormatToTitleCase(ClientRecord.ClientName);
-    cout << "| " << left << setw(20) << MyLib::FormatToTitleCase(ClientRecord.Address);
-    cout << "| " << left << setw(12) << ClientRecord.PhoneNumber;
-    cout << "| " << left << setw(12) << ClientRecord.Balance;
+	stClientData client;
+
+	client.AccountNumber = MyLib::readtext("Enter Account Number?");
+
+	while (ClientExistsByAccountNumber(client.AccountNumber, ClientFileName))
+	{
+		cout << "\nClient with [" << client.AccountNumber << "] already exists.\n"
+			"Enter another account number?\n";
+		getline(cin >> ws, client.AccountNumber);
+	}
+
+	client.PINCode = MyLib::readtext("Enter PIN Code?");
+	client.ClientName = MyLib::readtext("Enter Client Name?");
+	client.Address = MyLib::readtext("Client Address?");
+	client.PhoneNumber = MyLib::readtext("Phone Number?");
+	client.AccountBalance = MyLib::ReadPositiveNumber("Account Balance?");
+
+	return client;
+}
+
+vector<stClientData> LoadClientsDataFromFile(string FileName)
+{
+	vector <stClientData> vClients;
+	fstream MyFile;
+	MyFile.open(FileName, ios::in);
+
+	if (MyFile.is_open())
+	{
+		string line;
+		stClientData Clients;
+
+		while (getline(MyFile, line))
+		{
+			if (line.empty() || line == "") continue;
+
+			Clients = ConvertLineToRecord(line);
+			vClients.push_back(Clients);
+		}
+		MyFile.close();
+	}
+	return vClients;
+}
+
+void PrintClientRecordLine(stClientData& Client)
+{
+	cout << "| " << setw(15) << left << Client.AccountNumber;
+	cout << "| " << setw(12) << left << Client.PINCode;
+	cout << "| " << setw(20) << left << MyLib::FormatToTitleCase(Client.ClientName);
+	cout << "| " << setw(20) << left << MyLib::FormatToTitleCase(Client.Address);
+	cout << "| " << setw(12) << left << Client.PhoneNumber;
+	cout << "| " << setw(12) << left << Client.AccountBalance;
 }
 
 void ShowClientsList()
 {
-    const vector <stClientData> vClientsList = LoadDataFromFile(ClientFileName);
+	vector<stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
 
-    cout << "\n" << MyLib::Tabs(5) << "Clients List (" << vClientsList.size() << ") Client(s).";
-    cout << "\n___________________________________________________________";
-    cout << "_________________________________________\n" << endl;
-    cout << "| " << left << setw(15) << "Account Number";
-    cout << "| " << left << setw(12) << "PIN Code";
-    cout << "| " << left << setw(20) << "Client Name";
-    cout << "| " << left << setw(20) << "Adress";
-    cout << "| " << left << setw(12) << "Phone Number";
-    cout << "| " << left << setw(12) << "Balance";
-    cout << "\n___________________________________________________________";
-    cout << "_________________________________________\n" << endl;
+	cout << "\n" << MyLib::Tabs(5) << "Clients List (" << vClients.size() << ") Client(s)";
+	cout << "\n___________________________________________________________";
+	cout << "_________________________________________\n" << endl;
+	cout << "| " << setw(15) << left << "Account Number";
+	cout << "| " << setw(12) << left << "PIN Code";
+	cout << "| " << setw(20) << left << "Client Name";
+	cout << "| " << setw(20) << left << "Address";
+	cout << "| " << setw(12) << left << "Phone Number";
+	cout << "| " << setw(12) << left << "Balance";
+	cout << "\n___________________________________________________________";
+	cout << "_________________________________________\n" << endl;
 
-    for (const stClientData& client : vClientsList)
-    {
-        PrintClientRecord(client);
-        cout << endl;
-    }
-    cout << "\n___________________________________________________________";
-    cout << "_________________________________________\n" << endl;
+	if (vClients.size() == 0)
+		cout << "\t\t\t\tNo Clients Available In the System!";
+
+	for (stClientData& C : vClients)
+	{
+		PrintClientRecordLine(C);
+		cout << endl;
+	}
+	cout << "\n___________________________________________________________";
+	cout << "_________________________________________\n" << endl;
 }
 
-void PrintClientRecordBalanceLine(stClientData Client)
+void PrintClientCard(stClientData& Client)
 {
-    cout << "| " << setw(15) << left << Client.AccountNumber;
-    cout << "| " << setw(40) << left << Client.ClientName;
-    cout << "| " << setw(12) << left << Client.Balance;
+	cout << "\nThe following are the client details:\n";
+	cout << "-----------------------------------";
+	cout << "\nAccount Number  : " << Client.AccountNumber;
+	cout << "\nPin Code        : " << Client.PINCode;
+	cout << "\nClient Name     : " << MyLib::FormatToTitleCase(Client.ClientName);
+	cout << "\nClient Address  : " << MyLib::FormatToTitleCase(Client.Address);
+	cout << "\nPhone Number    : " << Client.PhoneNumber;
+	cout << "\nAccount Balance : " << Client.AccountBalance;
+	cout << "\n-----------------------------------\n";
 }
 
-void ShowTotalBalance()
+bool FindClientByAccountNumber(string AccountNumber, const vector <stClientData>& vClient, stClientData& Client)
 {
-    vector <stClientData> vClients = LoadDataFromFile(ClientFileName);
-
-    cout << "\n" << MyLib::Tabs(5) << "Balances List(" << vClients.size() << ") Client(s).";
-
-    cout << "\n_______________________________________________________";
-    cout << "_________________________________________\n" << endl;
-    cout << "| " << left << setw(15) << "Accout Number";
-    cout << "| " << left << setw(40) << "Client Name";
-    cout << "| " << left << setw(12) << "Balance";
-    cout << "\n_______________________________________________________";
-    cout << "_________________________________________\n" << endl;
-
-    double TotalBalances = 0;
-    
-    if (vClients.size() == 0)
-        cout << "\t\t\t\tNo Clients Available In the System!";
-    else
-        for (stClientData& C : vClients)
-        {
-            PrintClientRecordBalanceLine(C);
-            TotalBalances += C.Balance;
-
-            cout << endl;
-        }
-    cout <<
-        "\n_______________________________________________________";
-    cout << "_________________________________________\n" << endl;
-    cout << MyLib::Tabs(5) << " Total Balances = " << TotalBalances;
+	for (const stClientData& C : vClient)
+	{
+		if (C.AccountNumber == AccountNumber)
+		{
+			Client = C;
+			return true;
+		}
+	}
+	return false;
 }
 
-bool FindClientByAccountNumber(string AccountNumber, const vector <stClientData>& vClientList, stClientData& Client)
+stClientData ChangeClientRecord(string AccountNumber)
 {
-    for (const stClientData& C : vClientList)
-    {
-        if (C.AccountNumber == AccountNumber)
-        {
-            Client = C;
-            return true;
-        }
-    }
-    return false;
+	stClientData client;
+
+	client.AccountNumber = AccountNumber;
+	client.PINCode = MyLib::readtext("Enter new PIN Code?");
+	client.ClientName = MyLib::readtext("Enter new name?");
+	client.Address = MyLib::readtext("Enter new Address?");
+	client.PhoneNumber = MyLib::readtext("Enter new Phone Number?");
+	client.AccountBalance = MyLib::ReadPositiveNumber("Enter new Balance?");
+
+	return client;
 }
 
-void PrintClientCard(stClientData ClientCard)
+bool MarkClientForDeleteByAccountNumber(string AccountNumber, vector <stClientData>& vClients)
 {
-    cout << "\n|- The following are the Client details -|\n\n";
-    cout << "Account Number : " << ClientCard.AccountNumber << endl;
-    cout << "PIN Code       : " << ClientCard.PinCode << endl;
-    cout << "Client Name    : " << ClientCard.ClientName << endl;
-    cout << "Client Adress  : " << ClientCard.Address << endl;
-    cout << "Phone Number   : " << ClientCard.PhoneNumber << endl;
-    cout << "Balance        : " << ClientCard.Balance << endl;
+	for (stClientData& C : vClients)
+	{
+		if (C.AccountNumber == AccountNumber)
+		{
+			C.MarkForDelete = true;
+			return true;
+		}
+	}
+	return false;
 }
 
-void PrintSearchResult(string FileName)
+void SaveClientDataToFile(string FileName, const vector<stClientData>& vClients)
 {
-    stClientData Client;
-    vector <stClientData> vClientList = LoadDataFromFile(FileName);
+	fstream MyFile;
+	MyFile.open(FileName, ios::out);
 
-    cout << "\n|- Search -|\n\n";
-    string AccountNumber = MyLib::readtext("Enter account number? ");
-
-    while (!FindClientByAccountNumber(AccountNumber, vClientList, Client))
-    {
-        cout << "\nClient with Account Number (" << AccountNumber << ") Not Found\n\n";
-        AccountNumber = MyLib::readtext("Enter account number? ");
-    }
-    PrintClientCard(Client);
+	if (MyFile.is_open())
+	{
+		for (const stClientData& C : vClients)
+		{
+			if (!C.MarkForDelete)
+			{
+				MyFile << ConvertRecordToLine(C) << endl << endl;
+			}
+		}
+		MyFile.close();
+	}
 }
 
-bool MarkClientForDelete(string AccountNumber, vector <stClientData>& vClientList)
+void AddNewClient()
 {
-    for (stClientData& C : vClientList)
-    {
-        if (C.AccountNumber == AccountNumber)
-        {
-            C.MarkForDelete = true;
-            return true;
-        }
-    }
-    return false;
+	stClientData client = ReadNewClient();
+	AddDataLineToFile(ClientFileName, ConvertRecordToLine(client));
 }
 
-void SaveClientsDataToFile(string FileName, const vector <stClientData>& vClientList)
+void AddClients()
 {
-    fstream MyFile;
-    MyFile.open(FileName, ios::out);
+	char AddMore = 'Y';
 
-    if (MyFile.is_open())
-    {
-        for (const stClientData& C : vClientList)
-        {
-            if (!C.MarkForDelete)
-            {
-                MyFile << ConvertRecordToLine(C) << endl << endl;
-            }
-        }
-        MyFile.close();
-    }
+	do
+	{
+		MyLib::ResetScreen();
+		cout << "- - - - - - - - - - - - - - -\n";
+		cout << "    |- Add New Client -|\n";
+		cout << "- - - - - - - - - - - - - - -\n";
+		AddNewClient();
+
+		cout << "\n- - - - - - - - - - - - - - -\n";
+		cout << "|- Client has been added. -|\n";
+		cout << "- - - - - - - - - - - - - - -\n\n";
+		cout << "Do you want to add more? Y/N: ";
+
+		cin >> AddMore;
+		cin.ignore();
+	} while (toupper(AddMore) == 'Y');
 }
 
-bool DeleteClientFromList(vector <stClientData> &vClientList, string FileName)
+bool DeleteClientByAccountNumber(string& AccountNumber, vector <stClientData>& vClients)
 {
-    stClientData Client;
-    char DeleteClient = 'N';
-    cout << "\n|- Client Deletion -|\n\n";
-    string AccountNumber = MyLib::readtext("Enter account number? ");
+	stClientData client;
+	char answer = 'N';
 
-    while (!FindClientByAccountNumber(AccountNumber, vClientList, Client))
-    {
-        cout << "\nClient with Account Number (" << AccountNumber << ") Not Found\n\n";
-        AccountNumber = MyLib::readtext("Enter account number? ");
-    }
+	while (!FindClientByAccountNumber(AccountNumber, vClients, client))
+	{
+		cout << "\nClient with Account Number (" << AccountNumber << ") Not Found\n\n";
+		AccountNumber = MyLib::readtext("Enter account number? ");
+	}
 
-    PrintClientCard(Client);
-    cout << "\n\nAre you sure you want to delete this client? Y/N: ";
-    cin >> DeleteClient;
-    cin.ignore();
+	PrintClientCard(client);
+	cout << "\n\nAre you sure you want to delete this client? Y/N: ";
+	cin >> answer;
+	cin.ignore();
 
-    if (toupper(DeleteClient) == 'Y')
-    {
-        MarkClientForDelete(AccountNumber, vClientList);
-        SaveClientsDataToFile(FileName, vClientList);
-        vClientList = LoadDataFromFile(FileName); //Refresh the vector data.
-        cout << "\n\n- - - - - - - - - - - - - - - - - - - - - - -\n";
-        cout << "  Client has been Deleted Successfully.\n";
-        cout << "- - - - - - - - - - - - - - - - - - - - - - -\n";
-        return true;
-    }
-    cout << "\n\nDeletion Cancelled.\n" << endl;
+	if (toupper(answer) == 'Y')
+	{
+		MarkClientForDeleteByAccountNumber(AccountNumber, vClients);
+		SaveClientDataToFile(ClientFileName, vClients);
+		vClients = LoadClientsDataFromFile(ClientFileName);
+		cout << "\n\n- - - - - - - - - - - - - - - - - - - - - - -\n";
+		cout << "  Client has been Deleted Successfully.\n";
+		cout << "- - - - - - - - - - - - - - - - - - - - - - -\n";
 
-    return false;
+		return true;
+	}
+	cout << "\n\nDeletion Cancelled.\n" << endl;
+
+	return false;
 }
 
-void RemoveClientFromList()
+bool UpdateClientByAccountNumber(string& AccountNumber, vector <stClientData>& vClients)
 {
-    vector <stClientData> vClientList = LoadDataFromFile(ClientFileName);
-    DeleteClientFromList(vClientList, ClientFileName);
+	stClientData client;
+	char answer = 'N';
+
+	while (!FindClientByAccountNumber(AccountNumber, vClients, client))
+	{
+		cout << "\nClient with Account Number (" << AccountNumber << ") Not Found\n\n";
+		AccountNumber = MyLib::readtext("Enter account number? ");
+	}
+
+	PrintClientCard(client);
+	cout << "\n\nAre you sure you want to Modify this client Data? Y/N: ";
+	cin >> answer;
+	cin.ignore();
+
+	if (toupper(answer) == 'Y')
+	{
+		for (stClientData& C : vClients)
+		{
+			if (C.AccountNumber == AccountNumber)
+			{
+				C = ChangeClientRecord(AccountNumber);
+				break;
+			}
+		}
+		SaveClientDataToFile(ClientFileName, vClients);
+		vClients = LoadClientsDataFromFile(ClientFileName);
+		cout << "\n\n- - - - - - - - - - - - - - - - - - - - - - -\n";
+		cout << "  Client Data has been Updated Successfully.\n";
+		cout << "- - - - - - - - - - - - - - - - - - - - - - -\n";
+
+		return true;
+	}
+	cout << "\nUpdate Cancelled.\n" << endl;
+
+	return false;
+
 }
 
-stClientData ModifyClientRecord(string AccountNumber)
+void SmallClientList(stClientData& Client)
 {
-    stClientData Client;
-    Client.AccountNumber = AccountNumber;
-    cout << "\n|- Updating Client Data -|\n\n";
-
-    Client.PinCode     = MyLib::readtext("PIN Code?");
-    Client.ClientName  = MyLib::readtext("Cleint Name?");
-    Client.Address     = MyLib::readtext("Client Adress?");
-    Client.PhoneNumber = MyLib::readtext("Phone Number?");
-    Client.Balance     = MyLib::ReadPositiveNumber("Balance?");
-
-    cin.ignore();
-    return Client;
+	cout << "| " << setw(15) << left << Client.AccountNumber;
+	cout << "| " << setw(40) << left << MyLib::FormatToTitleCase(Client.ClientName);
+	cout << "| " << setw(12) << left << Client.AccountBalance;
 }
 
-void ChangeClientRecord(string AccountNumber, vector <stClientData>& vClientList)
+bool CheckEmptyAndRedirect(const vector <stClientData>& vClients, string msg)
 {
-    for (stClientData& C : vClientList)
-    {
-        if (C.AccountNumber == AccountNumber)
-        {
-            C = ModifyClientRecord(AccountNumber);
-            break;
-        }
-    }
+	if (vClients.empty())
+	{
+		char answer = 'N';
+
+		cout << "\n\tError: No clients available in the system " << msg << "!\n";
+		cout << "\tDo you want to add a new client right now? Y/N: ";
+		cin >> answer;
+		cin.ignore();
+
+		if (toupper(answer) == 'Y')
+		{
+			MyLib::ResetScreen();
+			AddClients();
+		}
+		return true;
+	}
+	return false;
 }
 
-bool UpdateClientData(vector <stClientData>& vClientList, string FileName)
+void ShowSmallClientsList()
 {
-    stClientData Client;
-    char UpdateData = 'N';
+	vector <stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
 
-    cout << "\n|- Client Data Update -|\n\n";
-    string AccountNumber = MyLib::readtext("Enter account number?");
+	cout << "\n" << MyLib::Tabs(5) << "Balances List(" << vClients.size() << ") Client(s).";
 
-    while (!FindClientByAccountNumber(AccountNumber, vClientList, Client))
-    {
-        cout << "\nClient with Account Number (" << AccountNumber << ") Not Found\n\n";
-        AccountNumber = MyLib::readtext("Enter account number? ");
-    }
-    PrintClientCard(Client);
+	cout << "\n_______________________________________________________";
+	cout << "_________________________________________\n" << endl;
+	cout << "| " << left << setw(15) << "Account Number";
+	cout << "| " << left << setw(40) << "Client Name";
+	cout << "| " << left << setw(12) << "Balance";
+	cout << "\n_______________________________________________________";
+	cout << "_________________________________________\n" << endl;
 
-    cout << "\nAre you sure you want to update this Client? Y/N: ";
-    cin >> UpdateData;
-    cin.ignore();
-
-    if (toupper(UpdateData) == 'Y')
-    {
-        ChangeClientRecord(AccountNumber, vClientList);
-        SaveClientsDataToFile(FileName, vClientList);
-        vClientList = LoadDataFromFile(FileName); //Refresh
-        cout << "\n\n- - - - - - - - - - - - - - - - - - - - - - -\n";
-        cout << "  Client Data has been Updated Successfully.\n";
-        cout << "- - - - - - - - - - - - - - - - - - - - - - -\n";
-        return true;
-    }
-    cout << "\nUpdate Cancelled.\n" << endl;
-
-    return false;
+	if (vClients.size() == 0)
+		cout << "\t\t\t\tNo Clients Available In the System!";
+	else
+		for (stClientData& C : vClients)
+		{
+			SmallClientList(C);
+			cout << endl;
+		}
+	cout << "\n___________________________________________________________";
+	cout << "_________________________________________\n" << endl;
 }
 
-void ClientInfoUpdate()
+void ShowDeleteClientScreen()
 {
-    vector <stClientData> vClientList = LoadDataFromFile(ClientFileName);
-    UpdateClientData(vClientList, ClientFileName);
+	vector <stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
+	ShowSmallClientsList();
+
+	cout << "\n|- Client Deletion -|\n\n";
+
+	if (CheckEmptyAndRedirect(vClients, "to delete")) return;
+
+
+	string AccountNumber = MyLib::readtext("Enter Account number?");
+	DeleteClientByAccountNumber(AccountNumber, vClients);
+}
+
+void ShowUpdateClientScreen()
+{
+	vector <stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
+	ShowSmallClientsList();
+
+	cout << "\n|- Update Client Data -|\n\n";
+
+	if (CheckEmptyAndRedirect(vClients, "to update")) return;
+
+
+	string AccountNumber = MyLib::readtext("Enter Account number?");
+	UpdateClientByAccountNumber(AccountNumber, vClients);
+}
+
+void ShowFindClientScreen()
+{
+	stClientData Client;
+	vector <stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
+
+	cout << "\n|- Search -|\n\n";
+
+	if (CheckEmptyAndRedirect(vClients, "to search for")) return;
+
+	string AccountNumber = MyLib::readtext("Enter Account number?");
+
+	while (!FindClientByAccountNumber(AccountNumber, vClients, Client))
+	{
+		cout << "\nClient with Account Number (" << AccountNumber << ") Not Found\n\n";
+		AccountNumber = MyLib::readtext("Enter account number? ");
+	}
+	PrintClientCard(Client);
+}
+
+void ShowEndScreen()
+{
+	cout << "\n-----------------------------------\n";
+	cout << "\tProgram Ends :-)";
+	cout << "\n-----------------------------------\n";
 }
 
 void WaitForUser()
 {
-    cout << "\nPress any key to continue . . . ";
-    system("pause>0");
+	cout << "\nPress any key to continue . . . ";
+	system("pause>0");
 }
 
-void ShowExitScreen()
+short ReadMainMenuOption()
 {
-    cout << "\n\n======================================\n"
-        << "Thank you for using our services.\n"
-        << "======================================\n";
-}
+	short userChoice = MyLib::ReadNumberFromTo(0, 6, "Select from the list please? ");
 
-enTransactionsMenu ChooseProcess()
-{
-    int UserChoice = MyLib::ReadNumberFromTo(1, 4, "Select from the list please? ");
-    return (enTransactionsMenu)UserChoice;
+	return userChoice;
 }
 
 bool ChangeBalanceByAccountNumber(string AccountNumber, double amount, vector <stClientData>& vClient)
 {
-    char answer = 'N';
+	char answer = 'N';
 
-    cout << "Are you sure you want to perform this transaction? Y/N: ";
-    cin >> answer;
-
-    if (toupper(answer) == 'Y')
-    {
-        for (stClientData& C : vClient)
-        {
-            if (C.AccountNumber == AccountNumber)
-            {
-                C.Balance += amount;
-                SaveClientsDataToFile(ClientFileName, vClient);
-                cout << "\n\nDone Successfully. New balance is: "
-                    << C.Balance;
-                return true;
-            }
-        }
-    }
-        return false;
+	cout << "Are you sure you want to perform this transaction? Y/N: ";
+	cin >> answer;
+	if (toupper(answer) == 'Y')
+	{
+		for (stClientData& C : vClient)
+		{
+			if (C.AccountNumber == AccountNumber)
+			{
+				C.AccountBalance += amount;
+				SaveClientDataToFile(ClientFileName, vClient);
+				cout << "\n\nDone Successfully. New balance is: "
+					<< C.AccountBalance;
+				return true;
+			}
+		}
+	}
+	cout << "\nTransaction Cancelled.\n";
+	return false;
 }
 
-void ShowDepositeScreen()
+void ShowDepositScreen()
 {
-    cout << "- - - - - - - - - - \n"
-        << "Deposite Screen\n"
-        << "- - - - - - - - - - \n";
+	cout << "- - - - - - - - - - \n"
+		<< "  Deposit Screen\n"
+		<< "- - - - - - - - - - \n";
+	stClientData client;
+	vector <stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
 
-    stClientData Client;
-    vector <stClientData> vClient = LoadDataFromFile(ClientFileName);
-    string AccountNumber = MyLib::readtext("Enter account number?");
+	if (CheckEmptyAndRedirect(vClients, "to search for")) return;
 
-    while (!FindClientByAccountNumber(AccountNumber, vClient, Client))
-    {
-        cout << "\nClient with [" << AccountNumber << "] does not exits";
-        AccountNumber = MyLib::readtext("Enter account number?");
-    }
+	string AccountNumber = MyLib::readtext("Enter account number?");
 
-    PrintClientCard(Client);
-    cout << "\n" << endl;
-    double amount = 0;
-    amount = MyLib::ReadPositiveNumber("Please enter deposite amount?");
-    cout << "\n" << endl;
-    ChangeBalanceByAccountNumber(AccountNumber, amount, vClient);
+	while (!FindClientByAccountNumber(AccountNumber, vClients, client))
+	{
+		cout << "\nClient with [" << AccountNumber << "] does not exist";
+		AccountNumber = MyLib::readtext("Enter account number?");
+	}
+	PrintClientCard(client);
+	cout << "\n" << endl;
+	double amount = MyLib::ReadPositiveNumber("Please enter deposit amount?");
+	cout << "\n" << endl;
+	ChangeBalanceByAccountNumber(AccountNumber, amount, vClients);
 }
 
 void ShowWithdrawScreen()
 {
-    cout << "- - - - - - - - - - \n"
-        << "Withdraw Screen\n"
-        << "- - - - - - - - - - \n";
-    stClientData Client;
-    vector <stClientData> vClient = LoadDataFromFile(ClientFileName);
-    string AccountNumber = MyLib::readtext("Enter account number?");
+	cout << "- - - - - - - - - - \n"
+		<< "  Withdraw Screen\n"
+		<< "- - - - - - - - - - \n";
+	stClientData client;
+	vector <stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
 
-    while (!FindClientByAccountNumber(AccountNumber, vClient, Client))
-    {
-        cout << "\nClient with [" << AccountNumber << "] does not exits";
-        AccountNumber = MyLib::readtext("Enter account number?");
-    }
+	if (CheckEmptyAndRedirect(vClients, "to search for")) return;
 
-    PrintClientCard(Client);
-    cout << "\n" << endl;
-    double amount = 0;
-    amount = MyLib::ReadPositiveNumber("Please enter withdraw amount?");
-    
-    while (amount > Client.Balance)
-    {
-        cout << "\nAmount Exceeds the balance, you can withdraw up to "
-            << Client.Balance << endl;
-        amount = MyLib::ReadPositiveNumber("Please enter a valid amount?");
-    }
-    cout << "\n" << endl;
-    ChangeBalanceByAccountNumber(AccountNumber, amount * -1, vClient);
+	string AccountNumber = MyLib::readtext("Enter account number?");
+
+	while (!FindClientByAccountNumber(AccountNumber, vClients, client))
+	{
+		cout << "\nClient with [" << AccountNumber << "] does not exist";
+		AccountNumber = MyLib::readtext("Enter account number?");
+	}
+	PrintClientCard(client);
+	cout << "\n" << endl;
+	double amount = MyLib::ReadPositiveNumber("Please enter withdrawal amount?");
+
+	while (client.AccountBalance < amount)
+	{
+		cout << "\nAmount exceeds the balance, you can withdraw up to "
+			<< client.AccountBalance << endl;
+		amount = MyLib::ReadPositiveNumber("Please enter a valid amount?");
+	}
+	cout << "\n" << endl;
+	ChangeBalanceByAccountNumber(AccountNumber, -amount, vClients);
+}
+
+void PrintClientRecordBalanceLine(stClientData& Client)
+{
+	cout << "| " << setw(15) << left << Client.AccountNumber;
+	cout << "| " << setw(40) << left << MyLib::FormatToTitleCase(Client.ClientName);
+	cout << "| " << setw(12) << left << Client.AccountBalance;
+}
+
+void ShowTotalBalance()
+{
+	vector <stClientData> vClients = LoadClientsDataFromFile(ClientFileName);
+
+	cout << "\n" << MyLib::Tabs(5) << "Balances List(" << vClients.size() << ") Client(s).";
+
+	cout << "\n_______________________________________________________";
+	cout << "_________________________________________\n" << endl;
+	cout << "| " << left << setw(15) << "Account Number";
+	cout << "| " << left << setw(40) << "Client Name";
+	cout << "| " << left << setw(12) << "Balance";
+	cout << "\n_______________________________________________________";
+	cout << "_________________________________________\n" << endl;
+
+	double TotalBalances = 0;
+
+	if (vClients.size() == 0)
+		cout << "\t\t\t\tNo Clients Available In the System!";
+	else
+		for (stClientData& C : vClients)
+		{
+			PrintClientRecordBalanceLine(C);
+			TotalBalances += C.AccountBalance;
+
+			cout << endl;
+		}
+	cout <<
+		"\n_______________________________________________________";
+	cout << "_________________________________________\n" << endl;
+	cout << MyLib::Tabs(5) << " Total Balances = " << TotalBalances;
+}
+
+short ReadTransactionsOption()
+{
+	short userChoice = MyLib::ReadNumberFromTo(1, 4, "Select from the list please? ");
+
+	return userChoice;
+}
+
+void PerformTransactionsOption(enTransactions Choice)
+{
+	switch (Choice)
+	{
+	case enTransactions::eDeposit:
+		MyLib::ResetScreen();
+		ShowDepositScreen();
+		WaitForUser();
+		break;
+	case enTransactions::eWithdraw:
+		MyLib::ResetScreen();
+		ShowWithdrawScreen();
+		WaitForUser();
+		break;
+	case enTransactions::eTotalBalance:
+		MyLib::ResetScreen();
+		ShowTotalBalance();
+		WaitForUser();
+		break;
+	case enTransactions::eMainMenu:
+		break;
+	}
+}
+
+void PerformMainMenuOption(enMainMenu Choice)
+{
+	switch (Choice)
+	{
+	case enMainMenu::eClientsList:
+		MyLib::ResetScreen();
+		ShowClientsList();
+		WaitForUser();
+		break;
+	case enMainMenu::eAddNewClient:
+		MyLib::ResetScreen();
+		AddClients();
+		WaitForUser();
+		break;
+	case enMainMenu::eDeleteClient:
+		MyLib::ResetScreen();
+		ShowDeleteClientScreen();
+		WaitForUser();
+		break;
+	case enMainMenu::eUpdateClient:
+		MyLib::ResetScreen();
+		ShowUpdateClientScreen();
+		WaitForUser();
+		break;
+	case enMainMenu::eFindClient:
+		MyLib::ResetScreen();
+		ShowFindClientScreen();
+		WaitForUser();
+		break;
+	case enMainMenu::eTransactions:
+		MyLib::ResetScreen();
+		ShowTransactionsMenu();
+		break;
+	}
+}
+
+void ShowTransactionsMenu()
+{
+	enTransactions Choice;
+
+	do
+	{
+		MyLib::ResetScreen();
+
+		cout << "====================================\n"
+			<< MyLib::Tabs(1) << "Transactions Screen\n"
+			<< "====================================" << endl;
+		cout << "[1] Deposit.\n"
+			<< "[2] Withdraw.\n"
+			<< "[3] Total Balances.\n"
+			<< "[4] Main Menu.\n"
+			<< "====================================\n" << endl;
+
+		Choice = (enTransactions)ReadTransactionsOption();
+		PerformTransactionsOption(Choice);
+
+	} while (Choice != enTransactions::eMainMenu);
 
 }
 
-void HandleTransactionsMenu(enTransactionsMenu Choice)
+void ShowMainMenu()
 {
-        switch (Choice)
-        {
-        case enTransactionsMenu::Deposite:
-            MyLib::ResetScreen();
-            ShowDepositeScreen();
-            WaitForUser();
-            break;
+	MyLib::ResetScreen();
 
-        case enTransactionsMenu::Withdraw:
-            MyLib::ResetScreen();
-            ShowWithdrawScreen();
-            WaitForUser();
-            break;
+	cout << "===========================================\n";
+	cout << "\t\tMain Menu Screen\n";
+	cout << "===========================================\n";
+	cout << "\t[1] Show Client List.\n";
+	cout << "\t[2] Add New Client.\n";
+	cout << "\t[3] Delete Client.\n";
+	cout << "\t[4] Update Client Info.\n";
+	cout << "\t[5] Find Client.\n";
+	cout << "\t[6] Transactions.\n";
+	cout << "\t[0] Exit.\n";
+	cout << "===========================================\n";
 
-        case enTransactionsMenu::ShowTotalBalances:
-            MyLib::ResetScreen();
-            ShowTotalBalance();
-            WaitForUser();
-            break;
-
-        case enTransactionsMenu::ShowMainMenu:
-            break;
-        }
-   
-}
-
-void ShowTransactionMenu()
-{
-    enTransactionsMenu Choice;
-
-    do
-    {
-        MyLib::ResetScreen();
-
-        cout << "====================================\n"
-            << MyLib::Tabs(1) << "Transactions Screen\n"
-            << "====================================" << endl;
-        cout << "[1] Deposite.\n"
-            << "[2] Withdraw.\n"
-            << "[3] Total Balances.\n"
-            << "[4] Main Menu.\n"
-            << "====================================\n" << endl;
-
-        Choice = ChooseProcess();
-        HandleTransactionsMenu(Choice);
-
-    } while (Choice != enTransactionsMenu::ShowMainMenu);
-}
-
-void HandleMainMenuChoice(enMainMenu Choice)
-{
-    switch (Choice)
-    {
-    case enMainMenu::allClients:
-        MyLib::ResetScreen();
-        ShowClientsList();
-        WaitForUser();
-        break;
-
-    case enMainMenu::AddNew:
-        MyLib::ResetScreen();
-        AddClients(ClientFileName);
-        WaitForUser();
-        break;
-
-    case enMainMenu::DeleteClient:
-        MyLib::ResetScreen();
-        ShowClientsList();
-        RemoveClientFromList();
-        WaitForUser();
-        break;
-
-    case enMainMenu::UpdateInfo:
-        MyLib::ResetScreen();
-        ShowClientsList();
-        ClientInfoUpdate();
-        WaitForUser();
-        break;
-
-    case enMainMenu::Search:
-        MyLib::ResetScreen();
-        PrintSearchResult(ClientFileName);
-        WaitForUser();
-        break;
-
-    case enMainMenu::Transactions:
-        MyLib::ResetScreen();
-        ShowTransactionMenu();
-        break;
-    }
 }
 
 void StartProgram()
 {
-    enMainMenu choice;
+	enMainMenu Choice;
 
-    do
-    {
-        MyLib::ResetScreen();
+	do
+	{
+		MyLib::ResetScreen();
 
-        MainMenuScreen();
+		ShowMainMenu();
+		Choice = (enMainMenu)ReadMainMenuOption();
+		PerformMainMenuOption(Choice);
 
-        choice = MainMenuButtons();
+	} while (Choice != enMainMenu::eExit);
 
-        HandleMainMenuChoice(choice);
-
-    } while (choice != enMainMenu::Exit);
-
-    ShowExitScreen();
-    cin.ignore();
-    MyLib::PressEnterToExit();
+	ShowEndScreen();
 }
 
 
@@ -670,9 +760,13 @@ void StartProgram()
 int main()
 {
 
+	StartProgram();
 
-    StartProgram();
-   
 
+
+
+
+	cin.ignore();
+	MyLib::PressEnterToExit();
 	return 0;
 }
