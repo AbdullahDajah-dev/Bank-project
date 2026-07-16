@@ -38,14 +38,14 @@ struct stClientData
 	bool MarkForDelete = false;
 };
 
-string ConvertRecordToLine(const stClientData& client, string Delim = "#//#")
+string ConvertRecordToLine(stClientData& client, string Delim = "#//#")
 {
 	string DataLine = "";
 
 	DataLine += client.AccountNumber + Delim;
 	DataLine += client.PINCode + Delim;
-	DataLine += client.ClientName + Delim;
-	DataLine += client.Address + Delim;
+	DataLine += MyLib::FormatToTitleCase(client.ClientName) + Delim;
+	DataLine += MyLib::FormatToTitleCase(client.Address) + Delim;
 	DataLine += client.PhoneNumber + Delim;
 	DataLine += to_string(client.AccountBalance);
 
@@ -272,14 +272,14 @@ bool MarkClientForDeleteByAccountNumber(string AccountNumber, vector <stClientDa
 	return false;
 }
 
-void SaveClientDataToFile(string FileName, const vector<stClientData>& vClients)
+void SaveClientDataToFile(string FileName, vector<stClientData>& vClients)
 {
 	fstream MyFile;
 	MyFile.open(FileName, ios::out);
 
 	if (MyFile.is_open())
 	{
-		for (const stClientData& C : vClients)
+		for (stClientData& C : vClients)
 		{
 			if (!C.MarkForDelete)
 			{
